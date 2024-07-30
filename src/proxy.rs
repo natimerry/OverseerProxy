@@ -16,7 +16,7 @@ use hyper::service::service_fn;
 use hyper::upgrade::Upgraded;
 use hyper::{Method, Request, Response};
 use hyper_util::rt::TokioIo;
-use log::{debug, info};
+use log::{debug, info, trace};
 
 use tokio::net::{TcpListener, TcpStream};
 use tracing::error;
@@ -79,6 +79,8 @@ pub async fn proxy(
         } else {
             eprintln!("CONNECT host is not socket addr: {:?}", req.uri());
             let mut resp = Response::new(full("CONNECT must be to a socket address"));
+            trace!("Received response: \n\t {:#?}",resp);
+
             *resp.status_mut() = http::StatusCode::BAD_REQUEST;
 
             Ok(resp)
@@ -102,6 +104,7 @@ pub async fn proxy(
         });
 
         let resp = sender.send_request(req).await?;
+        trace!("Received response: \n\t {:#?}",resp);
         Ok(resp.map(|b| b.boxed()))
     }
 }

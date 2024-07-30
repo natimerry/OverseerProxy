@@ -42,7 +42,6 @@ async fn log(
     restrict: bool,
 ) -> Result<Response<BoxBody<Bytes, hyper::Error>>, Box<dyn std::error::Error + Send + Sync>> {
     let path = req.uri().to_string();
-    let headers = debug!("{:#?}",&req.headers());
     info!("{} request {}", client.to_string().blue(), path.red());
     return proxy::proxy(req, restrict).await;
 }
