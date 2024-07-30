@@ -42,6 +42,10 @@ pub async fn proxy(
     Box<dyn std::error::Error + Send + Sync>,
 > {
 
+    let mut uri = String::new();
+    if uri.contains("www."){
+        uri = uri.strip_prefix("www.").unwrap().to_string();
+    }
 
     let mut uri = req
         .uri()
