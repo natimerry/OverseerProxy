@@ -55,7 +55,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let all_files = debug_file.and(warn_file);
 
     tracing_subscriber::registry()
-        .with(LevelFilter::TRACE)
+        .with(EnvFilter::builder()
+            .with_default_directive(LevelFilter::TRACE. into())
+            .with_env_var("LOG_LEVEL").from_env_lossy())
         .with(
             tracing_subscriber::fmt::layer()
                 .with_writer(all_files)
