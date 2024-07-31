@@ -49,7 +49,7 @@ pub async fn proxy(
         .uri()
         .to_string();
     if uri.contains(":443"){
-        uri = uri.strip_prefix(":443").unwrap().to_string();
+        uri = uri.strip_suffix(":443").unwrap().to_string();
     }
     if uri.contains("www."){
         uri = uri.strip_prefix("www.").unwrap().to_string();
