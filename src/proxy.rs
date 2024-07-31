@@ -145,14 +145,14 @@ fn full<T: Into<Bytes>>(chunk: T) -> BoxBody<Bytes, hyper::Error> {
 
 async fn tunnel(upgraded: Upgraded, addr: String) -> std::io::Result<()> {
     // Connect to remote server
-    let mut server = TcpStream::connect(addr).await?;
+    let mut server = TcpStream::connect(addr.clone()).await?;
     let mut upgraded = TokioIo::new(upgraded);
 
     // Proxying data
     let (from_client, from_server) =
         tokio::io::copy_bidirectional(&mut upgraded, &mut server).await?;
 
-    // Print message when done
+    debug!("Tunneling to {}",addr);
     info!(
         "client wrote {} bytes and received {} bytes",
         from_client, from_server
