@@ -19,3 +19,8 @@ http-body = "1.0.1"
 http-body-util = "0.1.2"
 bytes = "1.6.1"
 colored = "2.1.0"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
