@@ -43,17 +43,14 @@ pub async fn proxy(
 > {
 
     let mut uri = String::new();
-    if uri.contains(":443"){
-        uri = uri.strip_prefix("www.").unwrap().to_string();
-    }
+
 
     let mut uri = req
         .uri()
-        .to_string()
-        .strip_suffix(":443")
-        .unwrap()
         .to_string();
-
+    if uri.contains(":443"){
+        uri = uri.strip_prefix(":443").unwrap().to_string();
+    }
     if uri.contains("www."){
         uri = uri.strip_prefix("www.").unwrap().to_string();
     }
