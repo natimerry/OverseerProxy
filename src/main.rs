@@ -1,40 +1,44 @@
 mod proxy;
 
-use clap::Parser;
-use std::convert::Infallible;
 use std::net::SocketAddr;
-use std::sync::Arc;
-use tracing::{debug, info, trace, Level};
-use tracing_subscriber::filter::LevelFilter;
-use tracing_subscriber::fmt::writer::MakeWriterExt;
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::EnvFilter;
+use env_logger::Builder;
+use log::{debug, error, info, trace};
+
 
 use bytes::Bytes;
-use clap_derive::Parser;
-use colored::Colorize;
-use http_body_util::{combinators::BoxBody, BodyExt, Empty, Full};
-use hyper::body::Frame;
+use http_body_util::combinators::BoxBody;
 use hyper::server::conn::http1 as server_http1;
 use hyper::service::service_fn;
-use hyper::{body::Body, Method, Request, Response, StatusCode};
+use hyper::{Request, Response};
 use hyper_util::rt::TokioIo;
 use tokio::net::TcpListener;
 
-use hyper::client::conn::http1 as client_http1;
-
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
 struct Args {
-    #[arg(long, default_value_t = String::from("0.0.0.0"))]
     host: String,
-    #[arg(long, default_value_t = 3000)]
     port: i32,
-    #[arg(long, default_value_t = false)]
     restrict: bool,
 }
-use proxy::proxy;
+
+
+impl Args {
+    fn parse() -> Self {
+        let mut args = std::env::args().skip(1);
+        let mut host = "0.0.0.0".to_string();
+        let mut port = 8888;
+        let mut restrict = true;
+        
+        while let Some(arg) = args.next() {
+            match arg.as_str() {
+                "--host" => host = args.next().unwrap_or(host),
+                "--port" => port = args.next().and_then(|s| s.parse().ok()).unwrap_or(port),
+                "--restrict" => restrict = true,
+                _ => {}
+            }
+        }
+        
+        Args { host, port, restrict }
+    }
+}
 
 async fn log(
     req: Request<hyper::body::Incoming>,
@@ -42,34 +46,19 @@ async fn log(
     restrict: bool,
 ) -> Result<Response<BoxBody<Bytes, hyper::Error>>, Box<dyn std::error::Error + Send + Sync>> {
     let path = req.uri().to_string();
-    info!("{} request {}", client.to_string().blue(), path.red());
+    info!("{} request {}", client, path);
     return proxy::proxy(req, restrict).await;
 }
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let debug_file =
-        tracing_appender::rolling::hourly("./logs/", "debug").with_max_level(tracing::Level::TRACE);
-
-    let warn_file = tracing_appender::rolling::hourly("./logs/", "warnings")
-        .with_max_level(tracing::Level::WARN);
-    let all_files = debug_file.and(warn_file);
-
-    tracing_subscriber::registry()
-        .with(EnvFilter::builder()
-            .with_default_directive(LevelFilter::TRACE. into())
-            .with_env_var("LOG_LEVEL").from_env_lossy())
-        .with(
-            tracing_subscriber::fmt::layer()
-                .with_writer(all_files)
-                .with_ansi(false),
-        )
-        .with(
-            tracing_subscriber::fmt::Layer::new()
-                .with_ansi(true)
-                .with_writer(std::io::stdout.with_max_level(Level::TRACE))
-                .with_file(true)
-                .with_line_number(true),
-        )
+    Builder::new()
+        .filter_level(log::LevelFilter::Debug) // Default log level
+        .parse_env("LOG_LEVEL") // Override with `LOG_LEVEL` env var (e.g., `LOG_LEVEL=info`)
+        .format_timestamp_secs() // Optional: Add timestamps
+        .format_module_path(false) // Optional: Disable module path in logs
+        .format_level(true) // Show log levels (INFO, WARN, etc.)
+        .write_style(env_logger::WriteStyle::Auto) // Color support
         .init();
 
     let args = Args::parse();
@@ -91,17 +80,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let io = TokioIo::new(stream);
 
         tokio::task::spawn(async move {
-            if let Err(err) = server_http1::Builder::new()
+            if let Err(_) = server_http1::Builder::new()
                 .preserve_header_case(true)
                 .title_case_headers(true)
                 .serve_connection(io, service_fn(move |req| log(req, client, args.restrict)))
                 .with_upgrades()
                 .await
             {
-
+                error!("Error spawning thread");
             }
         });
     }
-
-    unreachable!()
 }
+

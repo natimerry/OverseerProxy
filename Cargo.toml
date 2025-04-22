@@ -4,23 +4,27 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-hyper = {version = "1",features = ["full"]}
-tokio = {version = "1.38.1",features = ["full"]}
-tower = { version = "0.4.13",features = ["full"]}
+hyper = {version = "1",features = ["http1", "http2", "server","client"]}
+tokio = { version = "1.37", features = ["rt-multi-thread", "net", "sync","macros"] }
 log = "0.4.22"
-tracing-appender = "0.2.3"
-tracing-subscriber = { version = "0.3.18", features = ["tracing", "env-filter"] }
-tracing = "0.1.40"
-clap_derive = "4.5.11"
-clap = "4.5.11"
 hyper-util = { version = "0.1.6", features = ["http1", "tokio"] }
 http = "1"
 http-body = "1.0.1"
 http-body-util = "0.1.2"
 bytes = "1.6.1"
-colored = "2.1.0"
+env_logger = "0.11.8"
+
 
 [profile.release]
-opt-level = 3
-lto = true
+opt-level = "z"  # Optimize for size
+strip = true
 codegen-units = 1
+
+
+[profile.mips]
+inherits="release"
+opt-level = "z"  # Optimize for size instead of speed
+lto = true       # Link-Time Optimization
+codegen-units = 1 # Slower build but smaller binary
+panic = "abort"   # No panic unwinding (saves space)
+strip = true      # Remove debug symbols

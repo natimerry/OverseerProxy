@@ -1,39 +1,37 @@
-use std::collections::HashSet;
-use std::fmt::Error;
 use std::fs;
-use std::hash::Hash;
-use std::io::read_to_string;
-use std::net::SocketAddr;
-use std::path::Path;
-use std::sync::LazyLock;
+use std::sync::OnceLock;
 
 use bytes::Bytes;
-use clap::builder::Str;
 use http_body_util::{combinators::BoxBody, BodyExt, Empty, Full};
 use hyper::client::conn::http1::Builder;
-use hyper::server::conn::http1;
-use hyper::service::service_fn;
 use hyper::upgrade::Upgraded;
 use hyper::{Method, Request, Response};
 use hyper_util::rt::TokioIo;
-use log::{debug, info, trace};
+use log::{debug, error, info, trace};
 
-use tokio::net::{TcpListener, TcpStream};
-use tracing::error;
-static DOMAIN_LIST: LazyLock<Vec<String>> = LazyLock::new(|| {
-    let content = fs::read_to_string("domain_list").expect("Bhai baaler file exist kore naa");
+use tokio::net::TcpStream;
+static DOMAIN_LIST: OnceLock<Vec<String>> = OnceLock::new();
 
-    content
-        .lines()
-        .map(|line|{
-            let mut x = line.replace("\n", "");
-            if x.contains("www."){
-                x = x.strip_prefix("www.").unwrap().to_string();
-            }
-            x
-        })
-        .collect::<Vec<String>>()
-});
+fn get_domain_list() -> &'static Vec<String> {
+    DOMAIN_LIST.get_or_init(|| {
+        match fs::read_to_string("domain_list") {
+            Ok(content) => {
+                content
+                    .lines()
+                    .map(|line| {
+                        let mut x = line.replace("\n", "");
+                        if x.contains("www.") {
+                            x = x.strip_prefix("www.").unwrap().to_string();
+                        }
+                        x
+                    })
+                    .collect()
+            },
+            Err(_) => Vec::new(), 
+        }
+    })
+}
+
 pub async fn proxy(
     req: Request<hyper::body::Incoming>,
     restrict: bool,
@@ -41,9 +39,6 @@ pub async fn proxy(
     hyper::Response<http_body_util::combinators::BoxBody<Bytes, hyper::Error>>,
     Box<dyn std::error::Error + Send + Sync>,
 > {
-
-    let mut uri = String::new();
-
 
     let mut uri = req
         .uri()
@@ -107,7 +102,7 @@ pub async fn proxy(
 }
 
 fn check_allow(restrict: bool, uri: String) -> bool{
-    for x in DOMAIN_LIST.iter() {
+    for x in get_domain_list().iter() {
         if x == &uri {
             if restrict {
                 error!("Prohibited domain {x} accessed");
