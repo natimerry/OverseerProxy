@@ -13,22 +13,18 @@ use tokio::net::TcpStream;
 static DOMAIN_LIST: OnceLock<Vec<String>> = OnceLock::new();
 
 fn get_domain_list() -> &'static Vec<String> {
-    DOMAIN_LIST.get_or_init(|| {
-        match fs::read_to_string("domain_list") {
-            Ok(content) => {
-                content
-                    .lines()
-                    .map(|line| {
-                        let mut x = line.replace("\n", "");
-                        if x.contains("www.") {
-                            x = x.strip_prefix("www.").unwrap().to_string();
-                        }
-                        x
-                    })
-                    .collect()
-            },
-            Err(_) => Vec::new(), 
-        }
+    DOMAIN_LIST.get_or_init(|| match fs::read_to_string("domain_list") {
+        Ok(content) => content
+            .lines()
+            .map(|line| {
+                let mut x = line.replace("\n", "");
+                if x.contains("www.") {
+                    x = x.strip_prefix("www.").unwrap().to_string();
+                }
+                x
+            })
+            .collect(),
+        Err(_) => Vec::new(),
     })
 }
 
@@ -39,18 +35,15 @@ pub async fn proxy(
     hyper::Response<http_body_util::combinators::BoxBody<Bytes, hyper::Error>>,
     Box<dyn std::error::Error + Send + Sync>,
 > {
-
-    let mut uri = req
-        .uri()
-        .to_string();
-    if uri.contains(":443"){
+    let mut uri = req.uri().to_string();
+    if uri.contains(":443") {
         uri = uri.strip_suffix(":443").unwrap().to_string();
     }
-    if uri.contains("www."){
+    if uri.contains("www.") {
         uri = uri.strip_prefix("www.").unwrap().to_string();
     }
 
-    if !check_allow(restrict,uri){
+    if !check_allow(restrict, uri) {
         // error!("Domains not allowed");
         return Err(Box::from("error"));
     }
@@ -71,7 +64,7 @@ pub async fn proxy(
         } else {
             eprintln!("CONNECT host is not socket addr: {:?}", req.uri());
             let mut resp = Response::new(full("CONNECT must be to a socket address"));
-            trace!("Received response: \n\t {:#?}",resp);
+            trace!("Received response: \n\t {:#?}", resp);
 
             *resp.status_mut() = http::StatusCode::BAD_REQUEST;
 
@@ -81,7 +74,12 @@ pub async fn proxy(
         let host = req.uri().host().expect("uri has no host");
         let port = req.uri().port_u16().unwrap_or(80);
 
-        let stream = TcpStream::connect((host, port)).await.unwrap();
+        let stream = TcpStream::connect((host, port)).await;
+        if let Err(e) = &stream {
+            error!("Error constructing TCP stream: {:?}", e);
+        }
+        let stream = stream.unwrap();
+
         let io = TokioIo::new(stream);
 
         let (mut sender, conn) = Builder::new()
@@ -89,6 +87,7 @@ pub async fn proxy(
             .title_case_headers(true)
             .handshake(io)
             .await?;
+
         tokio::task::spawn(async move {
             if let Err(err) = conn.await {
                 error!("Connection failed: {:?}", err);
@@ -96,12 +95,12 @@ pub async fn proxy(
         });
 
         let resp = sender.send_request(req).await?;
-        trace!("Received response: \n\t {:#?}",resp);
+        trace!("Received response: \n\t {:#?}", resp);
         Ok(resp.map(|b| b.boxed()))
     }
 }
 
-fn check_allow(restrict: bool, uri: String) -> bool{
+fn check_allow(restrict: bool, uri: String) -> bool {
     for x in get_domain_list().iter() {
         if x == &uri {
             if restrict {
@@ -109,11 +108,11 @@ fn check_allow(restrict: bool, uri: String) -> bool{
                 return false;
             } else {
                 debug!("Allowing domain");
-                return true
+                return true;
             }
         }
     }
-    if !restrict{
+    if !restrict {
         return false;
     }
     return true;
@@ -144,7 +143,7 @@ async fn tunnel(upgraded: Upgraded, addr: String) -> std::io::Result<()> {
     let (from_client, from_server) =
         tokio::io::copy_bidirectional(&mut upgraded, &mut server).await?;
 
-    debug!("Tunneling to {}",addr);
+    debug!("Tunneling to {}", addr);
     info!(
         "client wrote {} bytes and received {} bytes",
         from_client, from_server

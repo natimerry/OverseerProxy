@@ -24,7 +24,7 @@ codegen-units = 1
 [profile.mips]
 inherits="release"
 opt-level = "z"  # Optimize for size instead of speed
-lto = true       # Link-Time Optimization
+# lto = true       # Link-Time Optimization
 codegen-units = 1 # Slower build but smaller binary
 panic = "abort"   # No panic unwinding (saves space)
 strip = true      # Remove debug symbols
