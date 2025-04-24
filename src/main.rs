@@ -46,19 +46,19 @@ async fn log(
     restrict: bool,
 ) -> Result<Response<BoxBody<Bytes, hyper::Error>>, Box<dyn std::error::Error + Send + Sync>> {
     let path = req.uri().to_string();
-    info!("{} request {}", client, path);
+    // info!("{} request {}", client, path);
     return proxy::proxy(req, restrict).await;
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     Builder::new()
-        .filter_level(log::LevelFilter::Debug) // Default log level
-        .parse_env("LOG_LEVEL") // Override with `LOG_LEVEL` env var (e.g., `LOG_LEVEL=info`)
-        .format_timestamp_secs() // Optional: Add timestamps
-        .format_module_path(false) // Optional: Disable module path in logs
-        .format_level(true) // Show log levels (INFO, WARN, etc.)
-        .write_style(env_logger::WriteStyle::Auto) // Color support
+        .filter_level(log::LevelFilter::Info) 
+        .parse_env("LOG_LEVEL") 
+        .format_timestamp_secs() 
+        .format_module_path(false)  
+        .format_level(true) 
+        .write_style(env_logger::WriteStyle::Auto) 
         .init();
 
     let args = Args::parse();

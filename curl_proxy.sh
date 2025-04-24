@@ -2,8 +2,11 @@
 
 # proxy-curl.sh - Use your Rust proxy with curl
 
-PROXY_HOST="localhost"
-PROXY_PORT="8888"
+PROXY_HOST="192.168.68.105"
+PROXY_PORT="25566"
+# PROXY_HOST="localhost"
+# PROXY_PORT="8888"
+
 
 if [ $# -eq 0 ]; then
     echo "Usage: $0 <URL> [curl options]"
@@ -14,4 +17,4 @@ fi
 URL=$1
 shift
 
-curl --proxy "http://$PROXY_HOST:$PROXY_PORT" "$URL" "$@"
+curl --proxy "$PROXY_HOST:$PROXY_PORT" "$URL" "$@"
